@@ -1,3 +1,7 @@
+## Important Notice
+
+This is "pre-release" software for beta testers of Roastmaster for iOS10, due out in Fall 2016. This will NOT working with existing versions of Roastmaster (9 and below).
+
 ## Roastmaster RDP Probe Host (SBC)
 
 Roastmaster_RDP_Probe_Host is is a customizable Single Board Computer (SBC) application to send thermocouple readings via the Roastmaster Datagram Protocol (RDP) to Roastmaster iOS over a WiFi Network. 
@@ -9,10 +13,6 @@ The RDP Protocol is an OpenSource communications protocol created by Rainfrog, I
 Roastmaster_RDP_Probe_Host and the RDP protocol can function either alone, or alongside other hosts. Each host has a unique Serial Number string to identify itself to the server, which can negotiate simple SYN/ACK handshaking. So, we (the client) need only perform a multicast with our Serial Number and a synch (SYN) request, and await a response from Roastmaster (the server) in the form of an acknowledgement (ACK).
 
 Once the ACK has been received, we commence sending our thermocouple data to the server's (Roastmaster's) IP address.
-
-## Important Notice
-
-This is "pre-release" software for beta testers of Roastmaster for iOS10, due out in Fall 2016. This will NOT working with existing versions of Roastmaster (9 and below).
 
 ## Software Features
 
