@@ -10,6 +10,10 @@ Roastmaster_RDP_Probe_Host and the RDP protocol can function either alone, or al
 
 Once the ACK has been received, we commence sending our thermocouple data to the server's (Roastmaster's) IP address.
 
+## Important Notice
+
+This is "pre-release" software for beta testers of Roastmaster for iOS10, due out in Fall 2016. This will NOT working with existing versions of Roastmaster (9 and below).
+
 ## Software Features
 
 • Handles handshaking (SYN/ACK) with Roastmaster

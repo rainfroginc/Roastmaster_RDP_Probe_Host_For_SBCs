@@ -3,6 +3,9 @@
   ======================================================== Roastmaster_RDP_Probe_Host_SBC =====================================================
   ================================================================ Version 0.9.0 ==============================================================
 
+  IMPORTANT NOTICE: This is "pre-release" software for beta testers of Roastmaster for iOS10, due out in Fall 2016. 
+  This will NOT working with existing versions of Roastmaster (9 and below).
+
   Roastmaster_RDP_Probe_Host_SBC is a customizable application to send thermocouple readings via the Roastmaster Datagram Protocol (RDP)
   to Roastmaster iOS over a WiFi Network.
 
