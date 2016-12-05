@@ -1,11 +1,10 @@
-
 /*
   ======================================================== Roastmaster_RDP_Probe_Host_SBC =====================================================
-  ================================================================ Version 0.9.0 ==============================================================
+  ================================================================ Version 0.9.1 ==============================================================
 
   IMPORTANT NOTICE: This is "pre-release" software for beta testers of Roastmaster for iOS10, due out in Fall 2016. 
   This will NOT working with existing versions of Roastmaster (9 and below).
-
+  
   Roastmaster_RDP_Probe_Host_SBC is a customizable application to send thermocouple readings via the Roastmaster Datagram Protocol (RDP)
   to Roastmaster iOS over a WiFi Network.
 
@@ -139,15 +138,20 @@ const unsigned int baudRate = 115200;
 #define LOGGING
 
 /*
-   The SBC GPIO pins for Status and Error LEDs
-   Comment out to disable LED status indication for a given LED
-   STATUS_LED:
-   3 short blinks: Connecting to WiFi
-   2 short blinks: Connected, and sending SYN–waiting for a reply
+   The SBC GPIO pins for Status LED
+   Comment out to disable LED status indication
+   5 short blinks: Probe Error
+   4 blinks: Searching for WiFi
+   3 blinks: Connecting to WiFi
+   2 blinks: Connected to WiFi, and sending SYN–waiting for a reply
    1 long blink: Reading probe and sending temp datagram (lit for the duration of time the code executes)
+
+   Note: STATUS_ACTIVELOW denotes a GPIO pin that is active low, i.e. LOW for ON, and HIGH for OFF
+   Some factory-installe PCB LEDs are active low, wherease standard GPIO pins are usually active high
+
 */
-#define STATUS_LED 12
-#define ERROR_LED 13
+#define STATUS_LED 2
+#define STATUS_LED_ACTIVE_LOW
 
 /*
    Step 1 and Step 2:
@@ -162,7 +166,7 @@ const char wifiPassword[] = "YourPassword";
    Roastmaster will spawn as many "Servers" as needed for active probes based on the number of UNIQUE server IDs in the definitions of those probes.
    Each server will only respond to its serial number, and is limited to 16 unique Channels.
 */
-const char serverSerial[] = "My Probe Server";
+const char hostSerial[] = "My Probe Host";
 
 /*
    Step 4:
@@ -195,7 +199,6 @@ struct Probe probes[] = {
 
 typedef enum {
   featherHuzzahSBC = 1,
-  raspberryPiSBC,
 } SBCType; //(Single Board Computer)
 
 /*
@@ -309,8 +312,6 @@ typedef enum {
 
 #if (boardType == featherHuzzahSBC)
 #include <ESP8266WiFi.h>
-#elif (boardType == raspberryPiSBC)
-//TODO: Import Raspberry stuff
 #endif
 
 void setup() {
@@ -376,9 +377,6 @@ void setup() {
 #ifdef STATUS_LED
   pinMode(STATUS_LED, OUTPUT);
 #endif
-#ifdef ERROR_LED
-  pinMode(ERROR_LED, OUTPUT);
-#endif
 
   // Initiate a WiFi connection from our SSID and Password vars
   WiFi.begin(wifiSSID, wifiPassword);
@@ -391,7 +389,7 @@ void setup() {
   while (WiFi.status() != WL_CONNECTED) {
     // Loop while we're waiting for a WiFi connection
 #ifdef STATUS_LED
-    blinkLED(STATUS_LED, 3, 80, 40);
+    blinkLED(STATUS_LED, 4, 120, 60); //Signal searching for SSID: 4 blinks
 #endif
 #ifdef LOGGING
     Serial.print(".");
@@ -459,29 +457,37 @@ void loop() {
 
         if (shouldSendTemps) {   //Our sendTemps timer has fired, so it's time to send some temp data
 
+          //Reset our flag, so we throttle our packet sending to the timer's interval
+          shouldSendTemps = false;
+          
 #ifdef STATUS_LED
           //Turn on the LED while doing the work
+#ifdef STATUS_LED_ACTIVE_LOW
+          digitalWrite(STATUS_LED, LOW);
+#else
           digitalWrite(STATUS_LED, HIGH);
+#endif
 #endif
           readProbes(); //Reads the temp for each defined probe, storing it in our probes[] array of structs
           sendProbesDatagram(); //Sends the temp from each probes[] struct with its corresponding channel, to our server
 
 #ifdef STATUS_LED
           //Turn the LED back off
+#ifdef STATUS_LED_ACTIVE_LOW
+          digitalWrite(STATUS_LED, HIGH);
+#else
           digitalWrite(STATUS_LED, LOW);
 #endif
-
-          //Reset our flag, so we throttle our packet sending to the timer's interval
-          shouldSendTemps = false;
+#endif
         }
         break;
 
     }
 
-  } else {   //Wifi is not connected, so turn the error LED on
+  } else {   //Wifi is not connected
 
 #ifdef STATUS_LED
-    blinkLED(STATUS_LED, 3, 80, 40); //Signalling wifi searching
+    blinkLED(STATUS_LED, 3, 120, 60); //Signalling network connecting: 3 blinks
 #endif
   }
 }
@@ -541,7 +547,7 @@ bool readACK() {
         key = String("\"" + String(RDPKey_Serial) + "\"");
         iKey = packetString.indexOf(key);
         if (iKey >= 0) {
-          value = serverSerial;
+          value = hostSerial;
           expectedIndex = (iKey + key.length() + 1); //Account for colon
           iValue = packetString.indexOf(value, iKey + key.length()); //Search starting at key offset + key length (i.e. after)
           if (iValue == expectedIndex || iValue == (expectedIndex + 1)) { //+1 in case of space
@@ -610,7 +616,7 @@ void sendSYN() {
 
   String datagramDictionaryJSON = "{" +
                                   JSONStringForDictionaryWithStringValue(RDPKey_Version, RDPValue_Version_1_0, true, false) + "," +
-                                  JSONStringForDictionaryWithStringValue(RDPKey_Serial, String(serverSerial), true, false) + "," +
+                                  JSONStringForDictionaryWithStringValue(RDPKey_Serial, String(hostSerial), true, false) + "," +
                                   JSONStringForDictionaryWithIntValue(RDPKey_Epoch, sendCount, false) + "," +
                                   JSONStringForDictionaryWithStringValue(RDPKey_Payload, payloadArrayJSON, false, false) +
                                   "}";
@@ -635,7 +641,7 @@ void sendSYN() {
   sendCount++;
 
 #ifdef STATUS_LED
-  blinkLED(STATUS_LED, 2, 80, 40);
+  blinkLED(STATUS_LED, 2, 120, 60); //Signal sending SYN datagram: 2 blinks
 #endif
 
 }
@@ -718,11 +724,9 @@ void readProbes() {
     }
   }
 
-#ifdef ERROR_LED
+#ifdef STATUS_LED
   if (anyProbeError) {
-    digitalWrite(ERROR_LED, HIGH); // turn on the error indication LED
-  } else {
-    digitalWrite(ERROR_LED, LOW); // turn off the error indication LED
+    blinkLED(STATUS_LED, 5, 60, 60); //Signal probe error: 5 blinks
   }
 #endif
 }
@@ -762,7 +766,7 @@ void sendProbesDatagram() {
 
   String datagramDictionaryJSON = "{" +
                                   JSONStringForDictionaryWithStringValue(RDPKey_Version, RDPValue_Version_1_0, true, false) + "," +
-                                  JSONStringForDictionaryWithStringValue(RDPKey_Serial, String(serverSerial), true, false) + "," +
+                                  JSONStringForDictionaryWithStringValue(RDPKey_Serial, String(hostSerial), true, false) + "," +
                                   JSONStringForDictionaryWithIntValue(RDPKey_Epoch, sendCount, false) + "," +
                                   JSONStringForDictionaryWithStringValue(RDPKey_Payload, payloadArrayJSON, false, false) +
                                   "}";
@@ -908,14 +912,23 @@ String stringFromIPAddress(IPAddress address) {
          String(address[3]);
 }
 
-#if defined(STATUS_LED) || defined(ERROR_LED)
+#if defined(STATUS_LED)
 // We try to limit blinking to chunks of code that benefit from a pause, since delay() stops most board functions–not just our own code.
 void blinkLED(int ledToBlink, int blinkCount, int blinkOnDuration, int blinkOffDuration) {
   do {
-    digitalWrite(ledToBlink, HIGH);
-    delay(blinkOnDuration);
+#ifdef STATUS_LED_ACTIVE_LOW
     digitalWrite(ledToBlink, LOW);
+#else
+    digitalWrite(ledToBlink, HIGH);
+#endif
+    delay(blinkOnDuration);
+#ifdef STATUS_LED_ACTIVE_LOW
+    digitalWrite(ledToBlink, HIGH);
+#else
+    digitalWrite(ledToBlink, LOW);
+#endif
     delay(blinkOffDuration);
   } while (--blinkCount > 0);
 }
 #endif
+
