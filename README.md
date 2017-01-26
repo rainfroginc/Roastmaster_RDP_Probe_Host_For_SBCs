@@ -60,6 +60,7 @@ Feather Huzzah URL: http://arduino.esp8266.com/stable/package_esp8266com_index.j
 ## Acknowledgements
 
 Evan Graham - Thanks for your incredibly imaginative solution to a seemingly insurmountable enigma by developing the first working prototype for getting digital readings from a rotating Gene Cafe drum
+
 Robert Swift - Thanks for your impetus, vision and code prototyping
 
 ## License
